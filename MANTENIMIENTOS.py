@@ -1,9 +1,11 @@
 import calendar
 from datetime import datetime, date, timedelta
 import html
+import io
 import os
 import random
 from zoneinfo import ZoneInfo
+import openpyxl
 from PIL import Image
 import streamlit as st
 
@@ -148,7 +150,6 @@ MESES_ES = {
 }
 
 def _hora_aleatoria_10_a_19(rng):
-    # De 10:00 (600 min) a 19:00 (1140 min) inclusive
     total_min = rng.randint(10 * 60, 19 * 60)
     hh, mm = divmod(total_min, 60)
     return f"{hh:02d}:{mm:02d}"
@@ -388,6 +389,41 @@ def filtrar_por_frecuencia(filas, frecuencia_sel):
         return filas
     return [f for f in filas if f.get("FRECUENCIA") == frecuencia_sel]
 
+def generar_excel_bytes(filas, nombre_hoja="Mantenimientos", metadata_lineas=None):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = nombre_hoja[:31]
+
+    fila_actual = 1
+    if metadata_lineas:
+        for linea in metadata_lineas:
+            ws.cell(row=fila_actual, column=1, value=linea)
+            fila_actual += 1
+        fila_actual += 1
+
+    if not filas:
+        ws.cell(row=fila_actual, column=1, value="Sin registros para exportar.")
+    else:
+        columnas = list(filas[0].keys())
+        for col_idx, col_name in enumerate(columnas, start=1):
+            celda = ws.cell(row=fila_actual, column=col_idx, value=col_name)
+            celda.font = openpyxl.styles.Font(bold=True, color="FFFFFF")
+            celda.fill = openpyxl.styles.PatternFill(start_color="0F294A", end_color="0F294A", fill_type="solid")
+
+        for fila_dict in filas:
+            fila_actual += 1
+            for col_idx, col_name in enumerate(columnas, start=1):
+                ws.cell(row=fila_actual, column=col_idx, value=fila_dict.get(col_name, ""))
+
+        for col in ws.columns:
+            max_len = max((len(str(c.value or "")) for c in col), default=10)
+            ws.column_dimensions[col[0].column_letter].width = min(max(max_len + 3, 12), 48)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
 def _resumen_corto_actividad(texto):
     t = (texto or "").strip()
     if "," in t:
@@ -399,7 +435,7 @@ def _resumen_corto_actividad(texto):
 def construir_html_calendario(anio, mes, eventos_por_dia):
     cal = calendar.Calendar(firstweekday=0)
     semanas = cal.monthdayscalendar(anio, mes)
-    encabezados = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo (No laborable)"]
+    encabezados = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 
     css = """
     <style>
@@ -425,9 +461,6 @@ def construir_html_calendario(anio, mes, eventos_por_dia):
             border: 1px solid #cbd5e1;
             text-align: center;
         }
-        table.cal-grid th.th-domingo {
-            background: #475569;
-        }
         table.cal-grid td {
             border: 1px solid #cbd5e1;
             vertical-align: top;
@@ -437,9 +470,6 @@ def construir_html_calendario(anio, mes, eventos_por_dia):
         }
         table.cal-grid td.celda-vacia {
             background: #f8fafc;
-        }
-        table.cal-grid td.celda-domingo {
-            background: #f1f5f9;
         }
         table.cal-grid td.celda-hoy {
             background: #eff6ff;
@@ -454,12 +484,6 @@ def construir_html_calendario(anio, mes, eventos_por_dia):
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }
-        .tag-domingo {
-            font-size: 10px;
-            color: #64748b;
-            font-weight: 600;
-            text-transform: uppercase;
         }
         .ev-card {
             border-radius: 5px;
@@ -495,9 +519,8 @@ def construir_html_calendario(anio, mes, eventos_por_dia):
     """
 
     partes = [css, '<div class="cal-wrap"><table class="cal-grid"><thead><tr>']
-    for idx_h, nombre_dia in enumerate(encabezados):
-        clase_th = ' class="th-domingo"' if idx_h == 6 else ""
-        partes.append(f"<th{clase_th}>{html.escape(nombre_dia)}</th>")
+    for nombre_dia in encabezados:
+        partes.append(f"<th>{html.escape(nombre_dia)}</th>")
     partes.append("</tr></thead><tbody>")
 
     for semana in semanas:
@@ -508,18 +531,10 @@ def construir_html_calendario(anio, mes, eventos_por_dia):
                 continue
 
             fecha_celda = date(anio, mes, dia_num)
-            es_domingo = (idx_dia == 6)
             es_hoy = (fecha_celda == HOY_MX)
+            clase_td = ' class="celda-hoy"' if es_hoy else ""
 
-            clases = []
-            if es_domingo:
-                clases.append("celda-domingo")
-            if es_hoy:
-                clases.append("celda-hoy")
-            clase_td = f' class="{" ".join(clases)}"' if clases else ""
-
-            etiqueta_dom = '<span class="tag-domingo">No laborable</span>' if es_domingo else ""
-            partes.append(f'<td{clase_td}><div class="dia-num"><span>{dia_num}</span>{etiqueta_dom}</div>')
+            partes.append(f'<td{clase_td}><div class="dia-num"><span>{dia_num}</span></div>')
 
             for ev in eventos_por_dia.get(dia_num, []):
                 clase_color = f"ev-u{ev['color_idx'] % 3}"
@@ -646,19 +661,39 @@ mapa_unidades = {
 if modulo == "Programa de Mantenimiento Anual":
     st.title(f"Programa de Mantenimiento Anual 2026 — {EMPRESA}")
 
-    f_col1, f_col2 = st.columns([2.2, 1.2])
+    f_col1, f_col2, f_col3 = st.columns([2.2, 1.1, 1.0])
     unidad_label = f_col1.selectbox("Selecciona unidad / chofer", list(mapa_unidades.keys()))
     frecuencia_filtro = f_col2.selectbox("Filtrar por FRECUENCIA", FRECUENCIAS_ORDEN)
 
     u_sel = mapa_unidades[unidad_label]
+    filas_actuales, _ = obtener_filas_unidad(u_sel)
+    filas_filtradas = filtrar_por_frecuencia(filas_actuales, frecuencia_filtro)
+
+    excel_programa = generar_excel_bytes(
+        filas_filtradas,
+        nombre_hoja=f"Programa_{u_sel['id_unidad']}",
+        metadata_lineas=[
+            f"Empresa: {EMPRESA}",
+            f"Permiso de distribución: {PERMISO_DISTRIBUCION}",
+            f"Unidad: ID {u_sel['id_unidad']} - {u_sel['marca_modelo']} ({u_sel['anio']}) | Motor: {u_sel['numero_motor'] or 'N/A'} | Chofer: {u_sel['chofer']}",
+            f"Frecuencia: {frecuencia_filtro}",
+        ],
+    )
+    with f_col3:
+        st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+        st.download_button(
+            label="Exportar a Excel",
+            data=excel_programa,
+            file_name=f"Programa_Mantenimiento_NAUPAGAS_ID_{u_sel['id_unidad']}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+
     st.caption(
         f"**ID Unidad:** {u_sel['id_unidad']} | **Marca / Modelo:** {u_sel['marca_modelo']} | "
         f"**Año:** {u_sel['anio']} | **Número de motor:** {u_sel['numero_motor'] or 'N/A'} | "
         f"**Serie:** {u_sel['serie_vin'] or 'N/A'} | **Chofer:** {u_sel['chofer']}"
     )
-
-    filas_actuales, _ = obtener_filas_unidad(u_sel)
-    filas_filtradas = filtrar_por_frecuencia(filas_actuales, frecuencia_filtro)
 
     st.dataframe(
         filas_filtradas,
@@ -670,7 +705,7 @@ if modulo == "Programa de Mantenimiento Anual":
 # ================= 2. CALENDARIO ANUAL 2026 =================
 elif modulo == "Calendario Anual 2026":
     st.title(f"Calendario Anual de Mantenimiento 2026 — {EMPRESA}")
-    st.caption("Las unidades están escalonadas por días hábiles (Lunes a Sábado) para evitar empalmes y respetar domingos no laborables.")
+    st.caption("Las unidades están escalonadas por días hábiles para evitar empalmes y respetar domingos.")
 
     c_cal1, c_cal2, c_cal3 = st.columns([1.2, 1.8, 1.2])
     mes_sel = c_cal1.selectbox(
@@ -725,17 +760,37 @@ elif modulo == "Calendario Anual 2026":
                     "RESPONSABLE": f["RESPONSABLE"],
                 })
 
-    st.markdown(
-        "**Referencia de unidades:** "
-        + " | ".join([f"Pipa ID {u['id_unidad']} ({u['marca_modelo']} - {u['chofer']})" for u in unidades])
-    )
+    detalle_mes.sort(key=lambda x: (datetime.strptime(x["FECHA"], "%d/%m/%Y").date(), x["PIPA"], x["FOLIO"]))
+
+    c_ref, c_exp = st.columns([3.0, 1.0])
+    with c_ref:
+        st.markdown(
+            "**Referencia de unidades:** "
+            + " | ".join([f"Pipa ID {u['id_unidad']} ({u['marca_modelo']} - {u['chofer']})" for u in unidades])
+        )
+    with c_exp:
+        excel_cal = generar_excel_bytes(
+            detalle_mes,
+            nombre_hoja=f"Calendario_{MESES_ES[mes_sel]}",
+            metadata_lineas=[
+                f"Empresa: {EMPRESA}",
+                f"Permiso de distribución: {PERMISO_DISTRIBUCION}",
+                f"Calendario: {MESES_ES[mes_sel]} 2026 | Frecuencia: {frec_cal_sel}",
+            ],
+        )
+        st.download_button(
+            label="Exportar mes a Excel",
+            data=excel_cal,
+            file_name=f"Calendario_NAUPAGAS_{MESES_ES[mes_sel]}_2026.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
 
     html_cal = construir_html_calendario(2026, mes_sel, eventos_por_dia)
     st.markdown(html_cal, unsafe_allow_html=True)
 
     st.subheader(f"Detalle de actividades programadas — {MESES_ES[mes_sel]} 2026")
     if detalle_mes:
-        detalle_mes.sort(key=lambda x: (datetime.strptime(x["FECHA"], "%d/%m/%Y").date(), x["PIPA"], x["FOLIO"]))
         st.dataframe(detalle_mes, use_container_width=True, hide_index=True)
     else:
         st.info("No hay actividades programadas con los filtros seleccionados en este mes.")
