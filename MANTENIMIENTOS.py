@@ -109,14 +109,14 @@ CORRECTIVOS_BASE_POR_UNIDAD = {
         {
             "fecha_base": date(2026, 7, 18),
             "actividad": "Limpieza de sulfato y reapriete de terminales de batería.",
-            "responsable": "Técnico mecánico-eléctrico",
+            "responsable": "Erick Cruz (Mecanico)",
             "criterios": "Aceptación: Terminales firmes, limpias y arranque sin caída de tensión. Rechazo: Sulfatación o conexión floja.",
             "personal": "Técnico de mantenimiento mecánico-eléctrico",
         },
         {
             "fecha_base": date(2026, 11, 7),
             "actividad": "Reemplazo de rótulo o calcomanía de identificación/señalización despegada en la unidad.",
-            "responsable": "Operador / Responsable de seguridad",
+            "responsable": "Erick Cruz (Mecanico)",
             "criterios": "Aceptación: Rótulo íntegro, bien adherido y legible. Rechazo: Rótulo dañado, despegado o ilegible.",
             "personal": "Operador capacitado / Responsable de seguridad",
         },
@@ -252,29 +252,15 @@ def _es_inspeccion_visual(texto_actividad):
     t = (texto_actividad or "").lower()
     return "inspección visual" in t or "inspeccion visual" in t
 
-def _es_mantenimiento_mecanico(texto_actividad, responsable_actual=""):
-    t = (texto_actividad or "").lower()
-    r = (responsable_actual or "").lower()
+def _resolver_responsable(texto_actividad, responsable_actual, idx_visual_actual):
     if _es_inspeccion_visual(texto_actividad):
-        return False
-    palabras_mecanicas = (
-        "mecánic",
-        "mecanico",
-        "dirección",
-        "direccion",
-        "suspensión",
-        "suspension",
-        "muelles",
-        "amortiguadores",
-        "frenos",
-        "aceite de motor",
-        "filtro de aceite",
-        "birlo",
-        "torque",
-        "llantas",
-        "combustible",
-    )
-    return any(p in t for p in palabras_mecanicas) or "mecánic" in r or "mecanico" in r
+        nombre_visual = INSPECTORES_VISUALES[idx_visual_actual % len(INSPECTORES_VISUALES)]
+        return nombre_visual, idx_visual_actual + 1
+
+    resp_limpio = str(responsable_actual or "").strip()
+    if not resp_limpio or resp_limpio.lower() == "por asignar":
+        return RESPONSABLE_MECANICO, idx_visual_actual
+    return resp_limpio, idx_visual_actual
 
 def _hora_aleatoria_10_a_19(rng):
     total_min = rng.randint(10 * 60, 19 * 60)
@@ -311,7 +297,7 @@ def _crear_entrada(
     criterios,
     personal,
     rng,
-    responsable="Por asignar",
+    responsable=RESPONSABLE_MECANICO,
     folio_personalizado=None,
 ):
     fecha_obj = _sumar_dias_habiles_sin_domingo(fecha_base, desfase_unidad)
@@ -338,7 +324,7 @@ def _crear_entrada(
         "CUMPLIO": "Sí" if cumplido else "Pendiente",
         "ESTADO": estado,
         "ACCIONES TOMADAS": acciones,
-        "RESPONSABLE": responsable,
+        "RESPONSABLE": responsable or RESPONSABLE_MECANICO,
         "CRITERIOS DE ACEPTACIÓN O RECHAZO": criterios,
         "PERSONAL COMPETENTE": personal,
     }
@@ -455,12 +441,11 @@ def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
 
     idx_visual = 0
     for r in registros:
-        act_txt = r.get("ACTIVIDAD A REALIZAR", "")
-        if _es_inspeccion_visual(act_txt):
-            r["RESPONSABLE"] = INSPECTORES_VISUALES[idx_visual % len(INSPECTORES_VISUALES)]
-            idx_visual += 1
-        elif _es_mantenimiento_mecanico(act_txt, r.get("RESPONSABLE", "")):
-            r["RESPONSABLE"] = RESPONSABLE_MECANICO
+        r["RESPONSABLE"], idx_visual = _resolver_responsable(
+            r.get("ACTIVIDAD A REALIZAR", ""),
+            r.get("RESPONSABLE", ""),
+            idx_visual,
+        )
 
     filas_finales = []
     consecutivo_prv = 1
@@ -501,16 +486,11 @@ def normalizar_filas(filas):
         else:
             item["HORA DE CIERRE"] = str(item.get("HORA DE CIERRE", "")).strip()
 
-        act_txt = item.get("ACTIVIDAD A REALIZAR", "")
-        resp_actual = str(item.get("RESPONSABLE", "")).strip()
-        if _es_inspeccion_visual(act_txt):
-            item["RESPONSABLE"] = INSPECTORES_VISUALES[idx_visual % len(INSPECTORES_VISUALES)]
-            idx_visual += 1
-        elif _es_mantenimiento_mecanico(act_txt, resp_actual):
-            item["RESPONSABLE"] = RESPONSABLE_MECANICO
-        elif not resp_actual:
-            item["RESPONSABLE"] = "Por asignar"
-
+        item["RESPONSABLE"], idx_visual = _resolver_responsable(
+            item.get("ACTIVIDAD A REALIZAR", ""),
+            item.get("RESPONSABLE", ""),
+            idx_visual,
+        )
         limpias.append(item)
     return limpias
 
@@ -1070,7 +1050,7 @@ elif modulo == "Cerrar Mantenimientos":
                 fila_actual = next((f for f in pendientes_filtrados if f["FOLIO"] == folio_sel), pendientes_filtrados[0])
                 responsable_cierre = c2.text_input(
                     "RESPONSABLE",
-                    value=fila_actual.get("RESPONSABLE", "Por asignar")
+                    value=fila_actual.get("RESPONSABLE", RESPONSABLE_MECANICO)
                 )
                 hora_fin_cierre = c3.time_input(
                     "Hora en que terminó",
