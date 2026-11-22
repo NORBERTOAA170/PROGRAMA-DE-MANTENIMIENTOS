@@ -159,51 +159,112 @@ MODULOS_DISPONIBLES = [
 
 GUIAS_ASISTENTE = {
     "¿Ya sabes qué quieres hacer?": {
-        "mensaje": "¡Hola! Ya sabes qué quieres hacer? Puedo ayudarte a generar un nuevo mantenimiento, cerrar uno pendiente, revisar el calendario o sacar el Excel para la inspección.",
+        "burbuja": "¿Ya sabes qué quieres hacer?",
+        "mensaje": "¡Qué onda! Ya sabes qué quieres hacer? Generar un nuevo mantenimiento, cerrar uno, ver el calendario o sacar el Excel?",
         "pasos": [
-            "1. Elige en el selector de abajo qué necesitas hacer ahorita.",
-            "2. Lee los pasos rápidos o dale clic a 'Ir a este módulo'.",
-            "3. Si toca inspección y piden hoja de cálculo, usa 'Exportar a Excel'.",
+            "1. Selecciona aquí abajo lo que necesitas hacer.",
+            "2. Te digo los pasos rápidos y te llevo directo al módulo.",
+            "3. Si piden Excel en inspección, usa 'Exportar a Excel'.",
         ],
         "modulo_destino": "Programa de Mantenimiento Anual",
     },
     "Generar un nuevo mantenimiento": {
-        "mensaje": "Para registrar un preventivo o correctivo nuevo sin equivocarte:",
+        "burbuja": "¿Generar un nuevo mantenimiento?",
+        "mensaje": "Para registrar un preventivo o correctivo al momento:",
         "pasos": [
-            "1. Selecciona la pipa / chofer arriba.",
-            "2. Elige 'Correctivo' si se atendió al momento (queda cerrado en automático con hora) o 'Preventivo' según su fecha.",
-            "3. Captura responsable, actividad y criterios, y pulsa 'Generar mantenimiento'.",
+            "1. Elige la unidad / chofer.",
+            "2. Pon 'Correctivo' si fue al momento (se cierra solo con hora) o 'Preventivo' según fecha.",
+            "3. Llena responsable, actividad y criterios, y dale a 'Generar mantenimiento'.",
         ],
         "modulo_destino": "GENERAR NUEVO MANTENIMIENTO",
     },
     "Cerrar un mantenimiento": {
-        "mensaje": "Para dar por terminado un mantenimiento que estaba abierto:",
+        "burbuja": "¿Cerrar un mantenimiento abierto?",
+        "mensaje": "Para cerrar un folio pendiente y ponerle hora de término:",
         "pasos": [
-            "1. Entra a 'Cerrar Mantenimientos' y elige la unidad.",
-            "2. Selecciona el folio abierto, verifica el responsable y ajusta la hora en que terminó.",
-            "3. Escribe las acciones tomadas y presiona 'Cerrar mantenimiento'.",
+            "1. Entra a 'Cerrar Mantenimientos' y selecciona la unidad.",
+            "2. Escoge el folio abierto, revisa responsable y pon la hora en que terminó.",
+            "3. Escribe acciones tomadas y pulsa 'Cerrar mantenimiento'.",
         ],
         "modulo_destino": "Cerrar Mantenimientos",
     },
     "Revisar calendario o exportar Excel": {
-        "mensaje": "Para mostrar el mes en pantalla o descargar el archivo .xlsx:",
+        "burbuja": "¿Ver calendario o bajar Excel?",
+        "mensaje": "Para revisar el mes o descargar el respaldo en Excel:",
         "pasos": [
-            "1. En 'Calendario Anual 2026', filtra por mes, pipa o frecuencia y usa 'Exportar mes a Excel'.",
-            "2. En 'Programa de Mantenimiento Anual', filtra la unidad/frecuencia y usa 'Exportar a Excel'.",
-            "3. El archivo descarga listo con datos de la unidad y permiso de distribución.",
+            "1. En 'Calendario Anual 2026' filtra mes, pipa o frecuencia y usa 'Exportar mes a Excel'.",
+            "2. En 'Programa de Mantenimiento Anual' usa 'Exportar a Excel' para la unidad filtrada.",
+            "3. Se descarga el .xlsx listo para abrir o mostrar.",
         ],
         "modulo_destino": "Calendario Anual 2026",
     },
     "Agregar una nueva unidad": {
-        "mensaje": "Para dar de alta otra pipa en la bitácora:",
+        "burbuja": "¿Agregar otra pipa?",
+        "mensaje": "Para dar de alta una unidad nueva:",
         "pasos": [
-            "1. Ve a 'Agregar Unidad' en el menú.",
-            "2. Llena ID de unidad, marca/modelo, año, motor, serie, chofer y placas.",
-            "3. Guarda y aparecerá en los selectores de programa, calendario y cierres.",
+            "1. Ve a 'Agregar Unidad'.",
+            "2. Captura ID, marca/modelo, año, motor, serie, chofer y placas.",
+            "3. Guarda y ya saldrá en todos los módulos.",
         ],
         "modulo_destino": "Agregar Unidad",
     },
 }
+
+def render_widget_flotante(texto_burbuja):
+    st.markdown(
+        f"""
+        <style>
+            .naupa-float-widget {{
+                position: fixed;
+                right: 22px;
+                bottom: 22px;
+                z-index: 9999;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                background: #0f294a;
+                color: #ffffff;
+                border: 2px solid #38bdf8;
+                border-radius: 999px;
+                padding: 8px 14px 8px 8px;
+                box-shadow: 0 10px 25px rgba(15, 41, 74, 0.35);
+                font-family: sans-serif;
+                max-width: 320px;
+            }}
+            .naupa-float-avatar {{
+                width: 40px;
+                height: 40px;
+                border-radius: 50%;
+                background: #38bdf8;
+                color: #0f294a;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 21px;
+                flex-shrink: 0;
+            }}
+            .naupa-float-text {{
+                font-size: 12px;
+                line-height: 1.25;
+                font-weight: 600;
+            }}
+            .naupa-float-sub {{
+                font-size: 10px;
+                color: #bae6fd;
+                font-weight: 400;
+                margin-top: 2px;
+            }}
+        </style>
+        <div class="naupa-float-widget">
+            <div class="naupa-float-avatar">🤖</div>
+            <div>
+                <div class="naupa-float-text">{html.escape(texto_burbuja)}</div>
+                <div class="naupa-float-sub">Guía rápida en el menú lateral</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 def _hora_aleatoria_10_a_19(rng):
     total_min = rng.randint(10 * 60, 19 * 60)
@@ -706,7 +767,7 @@ with st.sidebar:
     st.session_state.modulo_activo = modulo
 
     st.markdown("---")
-    with st.expander("Asistente de guía rápida", expanded=False):
+    with st.expander("🤖 Asistente flotante (Guía)", expanded=True):
         intencion_sel = st.selectbox(
             "Ya sabes qué quieres hacer?",
             list(GUIAS_ASISTENTE.keys()),
@@ -725,6 +786,8 @@ with st.sidebar:
     if st.button("Cerrar sesión", use_container_width=True):
         st.session_state.usuario_actual = None
         st.rerun()
+
+render_widget_flotante(GUIAS_ASISTENTE[st.session_state.get("asistente_intencion", "¿Ya sabes qué quieres hacer?")]["burbuja"])
 
 unidades = st.session_state.unidades_naupagas
 mapa_unidades = {
