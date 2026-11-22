@@ -178,7 +178,17 @@ def _crear_entrada(
     folio_personalizado=None,
 ):
     fecha_obj = _sumar_dias_habiles_sin_domingo(fecha_base, desfase_unidad)
-    cumplido = fecha_obj <= HOY_MX
+    es_correctivo = tipo_mant == "Correctivo"
+    cumplido = True if es_correctivo else (fecha_obj <= HOY_MX)
+    estado = "Cerrado" if cumplido else "Abierto"
+
+    if es_correctivo:
+        acciones = "Mantenimiento correctivo ejecutado al momento"
+    elif cumplido:
+        acciones = f"Mantenimiento {frecuencia.lower()} ejecutado conforme al programa"
+    else:
+        acciones = "Pendiente por fecha programada"
+
     entrada = {
         "_fecha_dt": fecha_obj,
         "TIPO DE MANTENIMIENTO": tipo_mant,
@@ -186,12 +196,8 @@ def _crear_entrada(
         "FECHA PROGRAMADA": fecha_obj.strftime("%d/%m/%Y"),
         "ACTIVIDAD A REALIZAR": actividad,
         "CUMPLIO": "Sí" if cumplido else "Pendiente",
-        "ESTADO": "Cerrado" if cumplido else "Abierto",
-        "ACCIONES TOMADAS": (
-            f"Mantenimiento {frecuencia.lower()} ejecutado conforme al programa"
-            if cumplido
-            else "Pendiente por fecha programada"
-        ),
+        "ESTADO": estado,
+        "ACCIONES TOMADAS": acciones,
         "RESPONSABLE": responsable,
         "CRITERIOS DE ACEPTACIÓN O RECHAZO": criterios,
         "PERSONAL COMPETENTE": personal,
@@ -752,8 +758,17 @@ elif modulo == "GENERAR NUEVO MANTENIMIENTO":
                 st.error("No se programan mantenimientos en domingo porque es día no laborable.")
             else:
                 siguiente_num = len(filas_actuales) + 1
-                nuevo_folio = f"PRV-{siguiente_num:03d}" if tipo_mant == "Preventivo" else f"COR-{siguiente_num:03d}"
-                cumplido_flag = fecha_nuevo <= HOY_MX
+                es_correctivo = tipo_mant == "Correctivo"
+                nuevo_folio = f"COR-{siguiente_num:03d}" if es_correctivo else f"PRV-{siguiente_num:03d}"
+                cumplido_flag = True if es_correctivo else (fecha_nuevo <= HOY_MX)
+                estado_flag = "Cerrado" if cumplido_flag else "Abierto"
+
+                if es_correctivo:
+                    acciones_txt = "Mantenimiento correctivo ejecutado al momento"
+                elif cumplido_flag:
+                    acciones_txt = "Ejecutado conforme a fecha"
+                else:
+                    acciones_txt = "Asignado para ejecución"
 
                 nueva_fila = {
                     "FOLIO": nuevo_folio,
@@ -762,15 +777,15 @@ elif modulo == "GENERAR NUEVO MANTENIMIENTO":
                     "FECHA PROGRAMADA": fecha_nuevo.strftime("%d/%m/%Y"),
                     "ACTIVIDAD A REALIZAR": descripcion_nuevo.strip(),
                     "CUMPLIO": "Sí" if cumplido_flag else "Pendiente",
-                    "ESTADO": "Cerrado" if cumplido_flag else "Abierto",
-                    "ACCIONES TOMADAS": "Asignado para ejecución" if not cumplido_flag else "Ejecutado conforme a fecha",
+                    "ESTADO": estado_flag,
+                    "ACCIONES TOMADAS": acciones_txt,
                     "RESPONSABLE": asignado_a.strip(),
                     "CRITERIOS DE ACEPTACIÓN O RECHAZO": criterios_nuevo.strip(),
                     "PERSONAL COMPETENTE": personal_nuevo.strip() or "Personal técnico competente",
                 }
                 filas_actuales.append(nueva_fila)
                 st.session_state[clave_tabla] = normalizar_filas(filas_actuales)
-                st.success(f"Mantenimiento {nuevo_folio} ({tipo_mant}) generado y asignado a {asignado_a.strip()}.")
+                st.success(f"Mantenimiento {nuevo_folio} ({tipo_mant}) registrado y asignado a {asignado_a.strip()}.")
                 st.rerun()
 
     st.subheader(f"Mantenimientos registrados — ID {u_sel['id_unidad']}")
