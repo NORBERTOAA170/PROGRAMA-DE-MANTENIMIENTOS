@@ -7,6 +7,7 @@ from PIL import Image
 import streamlit as st
 
 EMPRESA = "NAUPAGAS"
+PERMISO_DISTRIBUCION = "LP/20474/DIST/PLA/2017"
 HOY_MX = datetime.now(ZoneInfo("America/Mexico_City")).date()
 
 st.set_page_config(
@@ -52,7 +53,7 @@ PIPAS_BASE = [
     {
         "id_unidad": "005",
         "marca_modelo": "CHRYSLER",
-        "permiso_cre": "90291900821315",
+        "numero_motor": "90291900821315",
         "serie_vin": "",
         "anio": "2010",
         "chofer": "MARTIN GONZALEZ LEON",
@@ -61,7 +62,7 @@ PIPAS_BASE = [
     {
         "id_unidad": "AT 20",
         "marca_modelo": "FREIGHTLINER M2 106 35K",
-        "permiso_cre": "90291900926231",
+        "numero_motor": "90291900926231",
         "serie_vin": "3ALACYCS6CDBS9001",
         "anio": "2012",
         "chofer": "MARCO ANTONIO ALVARADO DURAN",
@@ -473,6 +474,7 @@ if st.session_state.usuario_actual is None:
             st.markdown('<div class="portada-badge">NAUPAGAS • PROGRAMA ANUAL DE MANTENIMIENTO</div>', unsafe_allow_html=True)
             st.markdown("## Programa de Mantenimiento y Bitácora Electrónica")
             st.caption("Sistema exclusivo de NAUPAGAS para unidades de distribución de Gas LP.")
+            st.caption(f"**No. de permiso de distribución:** {PERMISO_DISTRIBUCION}")
 
         st.markdown("---")
 
@@ -537,7 +539,7 @@ if modulo == "Programa de Mantenimiento Anual":
     u_sel = mapa_unidades[unidad_label]
     st.caption(
         f"**ID Unidad:** {u_sel['id_unidad']} | **Marca / Modelo:** {u_sel['marca_modelo']} | "
-        f"**Año:** {u_sel['anio']} | **Permiso:** {u_sel['permiso_cre']} | "
+        f"**Año:** {u_sel['anio']} | **Número de motor:** {u_sel['numero_motor'] or 'N/A'} | "
         f"**Serie:** {u_sel['serie_vin'] or 'N/A'} | **Chofer:** {u_sel['chofer']}"
     )
 
@@ -755,7 +757,7 @@ elif modulo == "Agregar Unidad":
             anio_u = c3.text_input("Año", placeholder="Ej. 2015").strip()
 
             c4, c5, c6, c7 = st.columns(4)
-            permiso_u = c4.text_input("Permiso / Folio", placeholder="Ej. 90291900...").strip().upper()
+            motor_u = c4.text_input("Número de motor", placeholder="Ej. 90291900...").strip().upper()
             serie_u = c5.text_input("Serie / VIN", placeholder="Ej. 3ALACY...").strip().upper()
             chofer_u = c6.text_input("Chofer", placeholder="Ej. JUAN PEREZ LOPEZ").strip().upper()
             placas_u = c7.text_input("Placas", placeholder="Ej. XY1234A").strip().upper()
@@ -769,7 +771,7 @@ elif modulo == "Agregar Unidad":
                 st.session_state.unidades_naupagas.append({
                     "id_unidad": id_u,
                     "marca_modelo": marca_u,
-                    "permiso_cre": permiso_u,
+                    "numero_motor": motor_u,
                     "serie_vin": serie_u,
                     "anio": anio_u,
                     "chofer": chofer_u,
@@ -782,7 +784,7 @@ elif modulo == "Agregar Unidad":
     vista_unidades = [
         {
             "MARCA / MODELO": u["marca_modelo"],
-            "PERMISO / FOLIO": u["permiso_cre"],
+            "NÚMERO DE MOTOR": u["numero_motor"],
             "SERIE / VIN": u["serie_vin"],
             "AÑO": u["anio"],
             "ID UNIDAD": u["id_unidad"],
