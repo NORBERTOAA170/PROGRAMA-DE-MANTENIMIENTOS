@@ -70,6 +70,55 @@ PIPAS_BASE = [
     },
 ]
 
+CORRECTIVOS_BASE_POR_UNIDAD = {
+    "005": [
+        {
+            "fecha_base": date(2026, 2, 14),
+            "actividad": "Reemplazo de foco fundido de luz baja delantera izquierda y verificación de iluminación.",
+            "responsable": "Mecánico de turno",
+            "criterios": "Aceptación: Luz enciende correctamente y haz firme. Rechazo: Foco sin encender o falla en socket/cableado.",
+            "personal": "Operador capacitado / Técnico de mantenimiento de unidad",
+        },
+        {
+            "fecha_base": date(2026, 5, 16),
+            "actividad": "Cambio anticipado de aceite de motor y filtro de aceite antes del intervalo programado.",
+            "responsable": "Mecánico de turno",
+            "criterios": "Aceptación: Nivel correcto, sin fugas en tapón o filtro y presión estable. Rechazo: Fugas o nivel fuera de rango.",
+            "personal": "Mecánico automotriz competente",
+        },
+        {
+            "fecha_base": date(2026, 11, 28),
+            "actividad": "Cambio de plumas limpiaparabrisas desgastadas y ajuste de boquillas de lavaparabrisas.",
+            "responsable": "Mecánico de turno",
+            "criterios": "Aceptación: Barrido limpio sin dejar estrías y chorro directo al parabrisas. Rechazo: Goma rasgada o barrido deficiente.",
+            "personal": "Operador capacitado / Técnico de mantenimiento de unidad",
+        },
+    ],
+    "AT 20": [
+        {
+            "fecha_base": date(2026, 3, 21),
+            "actividad": "Reposición de birlo y tuerca de rueda dañada y reapriete con torque especificado.",
+            "responsable": "Mecánico de turno",
+            "criterios": "Aceptación: Birlo completo y torque correcto. Rechazo: Birlo flojo, barrido o faltante.",
+            "personal": "Mecánico automotriz competente",
+        },
+        {
+            "fecha_base": date(2026, 7, 18),
+            "actividad": "Limpieza de sulfato y reapriete de terminales de batería.",
+            "responsable": "Técnico mecánico-eléctrico",
+            "criterios": "Aceptación: Terminales firmes, limpias y arranque sin caída de tensión. Rechazo: Sulfatación o conexión floja.",
+            "personal": "Técnico de mantenimiento mecánico-eléctrico",
+        },
+        {
+            "fecha_base": date(2026, 12, 5),
+            "actividad": "Reemplazo de rótulo o calcomanía de identificación/señalización despegada en la unidad.",
+            "responsable": "Operador / Responsable de seguridad",
+            "criterios": "Aceptación: Rótulo íntegro, bien adherido y legible. Rechazo: Rótulo dañado, despegado o ilegible.",
+            "personal": "Operador capacitado / Responsable de seguridad",
+        },
+    ],
+}
+
 FRECUENCIAS_ORDEN = [
     "Todas",
     "Semanal",
@@ -117,10 +166,20 @@ def _ultimo_sabado_del_mes(anio, mes):
         d -= timedelta(days=1)
     return d
 
-def _crear_entrada(fecha_base, desfase_unidad, tipo_mant, frecuencia, actividad, criterios, personal, responsable="Por asignar"):
+def _crear_entrada(
+    fecha_base,
+    desfase_unidad,
+    tipo_mant,
+    frecuencia,
+    actividad,
+    criterios,
+    personal,
+    responsable="Por asignar",
+    folio_personalizado=None,
+):
     fecha_obj = _sumar_dias_habiles_sin_domingo(fecha_base, desfase_unidad)
     cumplido = fecha_obj <= HOY_MX
-    return {
+    entrada = {
         "_fecha_dt": fecha_obj,
         "TIPO DE MANTENIMIENTO": tipo_mant,
         "FRECUENCIA": frecuencia,
@@ -137,8 +196,11 @@ def _crear_entrada(fecha_base, desfase_unidad, tipo_mant, frecuencia, actividad,
         "CRITERIOS DE ACEPTACIÓN O RECHAZO": criterios,
         "PERSONAL COMPETENTE": personal,
     }
+    if folio_personalizado:
+        entrada["FOLIO"] = folio_personalizado
+    return entrada
 
-def generar_programa_anual_2026(desfase_unidad=0):
+def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
     registros = []
 
     d_sem = date(2026, 1, 3)
@@ -212,6 +274,20 @@ def generar_programa_anual_2026(desfase_unidad=0):
         "Responsable de mantenimiento / Especialista técnico certificado",
     ))
 
+    correctivos_unidad = CORRECTIVOS_BASE_POR_UNIDAD.get(id_unidad or "", [])
+    for idx_cor, cor in enumerate(correctivos_unidad, start=1):
+        registros.append(_crear_entrada(
+            cor["fecha_base"],
+            desfase_unidad,
+            "Correctivo",
+            "Evento / Correctivo",
+            cor["actividad"],
+            cor["criterios"],
+            cor["personal"],
+            responsable=cor["responsable"],
+            folio_personalizado=f"COR-{idx_cor:03d}",
+        ))
+
     orden_frec = {
         "Semanal": 1,
         "Mensual": 2,
@@ -224,9 +300,14 @@ def generar_programa_anual_2026(desfase_unidad=0):
     registros.sort(key=lambda r: (r["_fecha_dt"], orden_frec.get(r["FRECUENCIA"], 99)))
 
     filas_finales = []
-    for idx, r in enumerate(registros, start=1):
-        limpia = {k: v for k, v in r.items() if k != "_fecha_dt"}
-        fila = {"FOLIO": f"PRV-{idx:03d}"}
+    consecutivo_prv = 1
+    for r in registros:
+        folio = r.get("FOLIO")
+        if not folio:
+            folio = f"PRV-{consecutivo_prv:03d}"
+            consecutivo_prv += 1
+        limpia = {k: v for k, v in r.items() if k not in ("_fecha_dt", "FOLIO")}
+        fila = {"FOLIO": folio}
         fila.update(limpia)
         filas_finales.append(fila)
 
@@ -265,7 +346,9 @@ def obtener_filas_unidad(unidad_obj):
     clave = f"prog_2026_{unidad_obj['id_unidad']}"
     if clave not in st.session_state:
         desfase = obtener_desfase_unidad(unidad_obj)
-        st.session_state[clave] = normalizar_filas(generar_programa_anual_2026(desfase_unidad=desfase))
+        st.session_state[clave] = normalizar_filas(
+            generar_programa_anual_2026(desfase_unidad=desfase, id_unidad=unidad_obj["id_unidad"])
+        )
     else:
         st.session_state[clave] = normalizar_filas(st.session_state[clave])
     return st.session_state[clave], clave
