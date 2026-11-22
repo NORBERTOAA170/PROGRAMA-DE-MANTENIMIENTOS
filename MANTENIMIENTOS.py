@@ -2,13 +2,15 @@ import calendar
 from datetime import datetime, date, timedelta
 import html
 import os
+import random
 from zoneinfo import ZoneInfo
 from PIL import Image
 import streamlit as st
 
 EMPRESA = "NAUPAGAS"
 PERMISO_DISTRIBUCION = "LP/20474/DIST/PLA/2017"
-HOY_MX = datetime.now(ZoneInfo("America/Mexico_City")).date()
+AHORA_MX = datetime.now(ZoneInfo("America/Mexico_City"))
+HOY_MX = AHORA_MX.date()
 
 st.set_page_config(
     page_title="Mantenimiento y Bitácora - NAUPAGAS",
@@ -145,6 +147,12 @@ MESES_ES = {
     12: "Diciembre",
 }
 
+def _hora_aleatoria_10_a_19(rng):
+    # De 10:00 (600 min) a 19:00 (1140 min) inclusive
+    total_min = rng.randint(10 * 60, 19 * 60)
+    hh, mm = divmod(total_min, 60)
+    return f"{hh:02d}:{mm:02d}"
+
 def _sumar_dias_habiles_sin_domingo(fecha_base, dias_desfase):
     d = fecha_base
     while d.weekday() == 6:
@@ -174,6 +182,7 @@ def _crear_entrada(
     actividad,
     criterios,
     personal,
+    rng,
     responsable="Por asignar",
     folio_personalizado=None,
 ):
@@ -189,11 +198,14 @@ def _crear_entrada(
     else:
         acciones = "Pendiente por fecha programada"
 
+    hora_cierre = _hora_aleatoria_10_a_19(rng) if estado == "Cerrado" else ""
+
     entrada = {
         "_fecha_dt": fecha_obj,
         "TIPO DE MANTENIMIENTO": tipo_mant,
         "FRECUENCIA": frecuencia,
         "FECHA PROGRAMADA": fecha_obj.strftime("%d/%m/%Y"),
+        "HORA DE CIERRE": hora_cierre,
         "ACTIVIDAD A REALIZAR": actividad,
         "CUMPLIO": "Sí" if cumplido else "Pendiente",
         "ESTADO": estado,
@@ -207,6 +219,7 @@ def _crear_entrada(
     return entrada
 
 def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
+    rng = random.Random(f"NAUPAGAS-2026-{id_unidad or desfase_unidad}")
     registros = []
 
     d_sem = date(2026, 1, 3)
@@ -219,6 +232,7 @@ def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
             "Inspección visual y limpieza de válvulas de desconexión seca y acoplamiento de llenado, revisión de presión/estado de llantas, torque de birlos, bornes de batería e instrumentos.",
             "Aceptación: Sin fugas, sin grietas ni corrosión severa; acople sella y libera sin atoramiento; llantas y birlos firmes. Rechazo: Cualquier fuga/goteo de Gas LP, traba dañada, llanta dañada/ponchada o birlo flojo/barrido.",
             "Operador capacitado / Técnico de mantenimiento de unidad",
+            rng,
         ))
         d_sem += timedelta(days=7)
 
@@ -232,6 +246,7 @@ def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
             "Verificación operativa de válvulas de desconexión seca y acoplamiento de llenado, prueba de paro de emergencia, cableado eléctrico y rótulos/señalización.",
             "Aceptación: Cierre hermético al desconectar, paro de emergencia inmediato y rótulos legibles. Rechazo: Fuga al desacoplar, retardo/falla en paro de emergencia, cableado dañado o rótulos faltantes.",
             "Técnico de mantenimiento mecánico-eléctrico / Responsable de seguridad",
+            rng,
         ))
 
     for mes in (2, 4, 6, 8, 10, 12):
@@ -244,6 +259,7 @@ def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
             "Revisión de juego en dirección, suspensión/muelles/amortiguadores y revisión/purga de filtro o trampa de agua de combustible.",
             "Aceptación: Holgura de dirección dentro de tolerancia, suspensión sin golpes/fugas y combustible limpio. Rechazo: Juego excesivo en dirección, amortiguador/muelle roto o con fuga, o combustible contaminado.",
             "Mecánico automotriz competente",
+            rng,
         ))
 
     for mes in (3, 6, 9, 12):
@@ -256,6 +272,7 @@ def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
             "Inspección trimestral de sistema de medición/transferencia, frenos, suspensión, mangueras/acoples y pruebas funcionales de dispositivos de emergencia.",
             "Aceptación: Transferencia estable, frenos y suspensión sin anomalías y paro de emergencia operativo. Rechazo: Fugas, descalibración o falla en transferencia, frenos, suspensión o emergencia.",
             "Técnico mecánico-eléctrico / Especialista de mantenimiento",
+            rng,
         ))
 
     for mes in (6, 12):
@@ -268,6 +285,7 @@ def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
             "Revisión integral semestral de válvulas de relevo de presión, sistema de contención, tuberías, conexiones, hermeticidad general, frenos y dispositivos de seguridad.",
             "Aceptación: Sin fugas, sin grietas ni corrosión severa; válvulas, tuberías y seguridad íntegros. Rechazo: Cualquier fuga de Gas LP, daño estructural/en válvulas/tuberías o falla de seguridad.",
             "Especialista en sistemas LP / Técnico de mantenimiento certificado",
+            rng,
         ))
 
     registros.append(_crear_entrada(
@@ -278,6 +296,7 @@ def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
         "Evaluación anual consolidada de cumplimiento del programa preventivo de la unidad, revisión general de componentes críticos, dispositivos de seguridad, hermeticidad y control documental.",
         "Aceptación: Programa anual cumplido, componentes íntegros, sin fugas ni fallas críticas y condiciones seguras. Rechazo: Fugas, fallas críticas no atendidas, deficiencias en seguridad o incumplimiento normativo.",
         "Responsable de mantenimiento / Especialista técnico certificado",
+        rng,
     ))
 
     correctivos_unidad = CORRECTIVOS_BASE_POR_UNIDAD.get(id_unidad or "", [])
@@ -290,6 +309,7 @@ def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
             cor["actividad"],
             cor["criterios"],
             cor["personal"],
+            rng,
             responsable=cor["responsable"],
             folio_personalizado=f"COR-{idx_cor:03d}",
         ))
@@ -338,6 +358,10 @@ def normalizar_filas(filas):
                 item[k] = ""
         item["CUMPLIO"] = _normalizar_cumplio(item.get("CUMPLIO"))
         item["ESTADO"] = _normalizar_estado(item.get("ESTADO"))
+        if item["ESTADO"] != "Cerrado":
+            item["HORA DE CIERRE"] = ""
+        else:
+            item["HORA DE CIERRE"] = str(item.get("HORA DE CIERRE", "")).strip()
         limpias.append(item)
     return limpias
 
@@ -504,10 +528,11 @@ def construir_html_calendario(anio, mes, eventos_por_dia):
                 act_txt = html.escape(ev["resumen"])
                 frec_txt = html.escape(ev["frecuencia"])
                 est_txt = html.escape(ev["estado"])
+                hora_txt = f" | {html.escape(ev['hora'])}" if ev.get("hora") else ""
                 partes.append(
                     f'<div class="ev-card {clase_color}">'
                     f'<div class="ev-title">{folio_txt} - {act_txt}</div>'
-                    f'<div class="ev-sub">Pipa ID {pipa_txt} | {frec_txt} | {est_txt}</div>'
+                    f'<div class="ev-sub">Pipa ID {pipa_txt} | {frec_txt} | {est_txt}{hora_txt}</div>'
                     f"</div>"
                 )
 
@@ -676,6 +701,7 @@ elif modulo == "Calendario Anual 2026":
             except Exception:
                 continue
             if f_dt.year == 2026 and f_dt.month == mes_sel:
+                hora_ev = f["HORA DE CIERRE"] if f["ESTADO"] == "Cerrado" else ""
                 eventos_por_dia.setdefault(f_dt.day, []).append({
                     "color_idx": color_idx,
                     "folio": f["FOLIO"],
@@ -683,9 +709,11 @@ elif modulo == "Calendario Anual 2026":
                     "resumen": _resumen_corto_actividad(f["ACTIVIDAD A REALIZAR"]),
                     "frecuencia": f["FRECUENCIA"],
                     "estado": f["ESTADO"],
+                    "hora": hora_ev,
                 })
                 detalle_mes.append({
                     "FECHA": f["FECHA PROGRAMADA"],
+                    "HORA DE CIERRE": hora_ev,
                     "DÍA": ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"][f_dt.weekday()],
                     "PIPA": f"ID {u_obj['id_unidad']} ({u_obj['marca_modelo']})",
                     "CHOFER": u_obj["chofer"],
@@ -757,6 +785,7 @@ elif modulo == "GENERAR NUEVO MANTENIMIENTO":
             elif fecha_nuevo.weekday() == 6:
                 st.error("No se programan mantenimientos en domingo porque es día no laborable.")
             else:
+                rng_nuevo = random.Random()
                 siguiente_num = len(filas_actuales) + 1
                 es_correctivo = tipo_mant == "Correctivo"
                 nuevo_folio = f"COR-{siguiente_num:03d}" if es_correctivo else f"PRV-{siguiente_num:03d}"
@@ -770,11 +799,14 @@ elif modulo == "GENERAR NUEVO MANTENIMIENTO":
                 else:
                     acciones_txt = "Asignado para ejecución"
 
+                hora_cierre_nuevo = _hora_aleatoria_10_a_19(rng_nuevo) if estado_flag == "Cerrado" else ""
+
                 nueva_fila = {
                     "FOLIO": nuevo_folio,
                     "TIPO DE MANTENIMIENTO": tipo_mant,
                     "FRECUENCIA": frecuencia_nuevo,
                     "FECHA PROGRAMADA": fecha_nuevo.strftime("%d/%m/%Y"),
+                    "HORA DE CIERRE": hora_cierre_nuevo,
                     "ACTIVIDAD A REALIZAR": descripcion_nuevo.strip(),
                     "CUMPLIO": "Sí" if cumplido_flag else "Pendiente",
                     "ESTADO": estado_flag,
@@ -813,12 +845,16 @@ elif modulo == "Cerrar Mantenimientos":
         folios_abiertos = [f["FOLIO"] for f in pendientes_filtrados]
         with st.container(border=True):
             with st.form("form_cerrar_mant"):
-                c1, c2 = st.columns([1.5, 2.5])
+                c1, c2, c3 = st.columns([1.4, 2.0, 1.1])
                 folio_sel = c1.selectbox("Folio abierto a cerrar", folios_abiertos)
                 fila_actual = next((f for f in pendientes_filtrados if f["FOLIO"] == folio_sel), pendientes_filtrados[0])
                 responsable_cierre = c2.text_input(
                     "RESPONSABLE",
                     value=fila_actual.get("RESPONSABLE", "Por asignar")
+                )
+                hora_fin_cierre = c3.time_input(
+                    "Hora en que terminó",
+                    value=AHORA_MX.time().replace(second=0, microsecond=0)
                 )
 
                 acciones_cierre = st.text_input(
@@ -829,15 +865,17 @@ elif modulo == "Cerrar Mantenimientos":
                 cerrar_btn = st.form_submit_button("Cerrar mantenimiento", type="primary")
 
             if cerrar_btn:
+                hora_str = hora_fin_cierre.strftime("%H:%M")
                 for f in filas_actuales:
                     if f["FOLIO"] == folio_sel:
                         f["ESTADO"] = "Cerrado"
                         f["CUMPLIO"] = "Sí"
+                        f["HORA DE CIERRE"] = hora_str
                         f["RESPONSABLE"] = responsable_cierre.strip() or usuario["nombre"]
                         f["ACCIONES TOMADAS"] = acciones_cierre.strip() or "Mantenimiento cerrado"
                         break
                 st.session_state[clave_tabla] = normalizar_filas(filas_actuales)
-                st.success(f"Folio {folio_sel} cerrado. Ya no aparecerá en pendientes.")
+                st.success(f"Folio {folio_sel} cerrado a las {hora_str}. Ya no aparecerá en pendientes.")
                 st.rerun()
 
         st.subheader("Mantenimientos abiertos pendientes de cierre")
