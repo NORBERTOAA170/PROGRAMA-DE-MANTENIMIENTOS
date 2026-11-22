@@ -160,64 +160,39 @@ MODULOS_DISPONIBLES = [
 GUIAS_ASISTENTE = {
     "¿Ya sabes qué quieres hacer?": {
         "burbuja": "¿Ya sabes qué quieres hacer?",
-        "mensaje": "¡Qué onda! Ya sabes qué quieres hacer? Generar un nuevo mantenimiento, cerrar uno, ver el calendario o sacar el Excel?",
-        "pasos": [
-            "1. Selecciona aquí abajo lo que necesitas hacer.",
-            "2. Te digo los pasos rápidos y te llevo directo al módulo.",
-            "3. Si piden Excel en inspección, usa 'Exportar a Excel'.",
-        ],
+        "tip": "Genera, cierra folios, ve el calendario o baja el Excel.",
         "modulo_destino": "Programa de Mantenimiento Anual",
     },
     "Generar un nuevo mantenimiento": {
         "burbuja": "¿Generar un nuevo mantenimiento?",
-        "mensaje": "Para registrar un preventivo o correctivo al momento:",
-        "pasos": [
-            "1. Elige la unidad / chofer.",
-            "2. Pon 'Correctivo' si fue al momento (se cierra solo con hora) o 'Preventivo' según fecha.",
-            "3. Llena responsable, actividad y criterios, y dale a 'Generar mantenimiento'.",
-        ],
+        "tip": "Elige pipa, pon Correctivo o Preventivo y llena responsable.",
         "modulo_destino": "GENERAR NUEVO MANTENIMIENTO",
     },
     "Cerrar un mantenimiento": {
         "burbuja": "¿Cerrar un mantenimiento abierto?",
-        "mensaje": "Para cerrar un folio pendiente y ponerle hora de término:",
-        "pasos": [
-            "1. Entra a 'Cerrar Mantenimientos' y selecciona la unidad.",
-            "2. Escoge el folio abierto, revisa responsable y pon la hora en que terminó.",
-            "3. Escribe acciones tomadas y pulsa 'Cerrar mantenimiento'.",
-        ],
+        "tip": "Elige folio abierto, pon hora en que terminó y acciones.",
         "modulo_destino": "Cerrar Mantenimientos",
     },
     "Revisar calendario o exportar Excel": {
         "burbuja": "¿Ver calendario o bajar Excel?",
-        "mensaje": "Para revisar el mes o descargar el respaldo en Excel:",
-        "pasos": [
-            "1. En 'Calendario Anual 2026' filtra mes, pipa o frecuencia y usa 'Exportar mes a Excel'.",
-            "2. En 'Programa de Mantenimiento Anual' usa 'Exportar a Excel' para la unidad filtrada.",
-            "3. Se descarga el .xlsx listo para abrir o mostrar.",
-        ],
+        "tip": "Filtra mes o pipa y usa Exportar a Excel.",
         "modulo_destino": "Calendario Anual 2026",
     },
     "Agregar una nueva unidad": {
         "burbuja": "¿Agregar otra pipa?",
-        "mensaje": "Para dar de alta una unidad nueva:",
-        "pasos": [
-            "1. Ve a 'Agregar Unidad'.",
-            "2. Captura ID, marca/modelo, año, motor, serie, chofer y placas.",
-            "3. Guarda y ya saldrá en todos los módulos.",
-        ],
+        "tip": "Llena ID, marca, año, motor, serie, chofer y placas.",
         "modulo_destino": "Agregar Unidad",
     },
 }
 
-def render_widget_flotante(texto_burbuja):
+def render_widget_flotante(texto_burbuja, subtexto):
     st.markdown(
         f"""
         <style>
             .naupa-float-widget {{
                 position: fixed;
                 right: 22px;
-                bottom: 22px;
+                bottom: 58px;
                 z-index: 9999;
                 display: flex;
                 align-items: center;
@@ -229,18 +204,18 @@ def render_widget_flotante(texto_burbuja):
                 padding: 8px 14px 8px 8px;
                 box-shadow: 0 10px 25px rgba(15, 41, 74, 0.35);
                 font-family: sans-serif;
-                max-width: 320px;
+                max-width: 330px;
             }}
             .naupa-float-avatar {{
-                width: 40px;
-                height: 40px;
+                width: 38px;
+                height: 38px;
                 border-radius: 50%;
                 background: #38bdf8;
                 color: #0f294a;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 21px;
+                font-size: 20px;
                 flex-shrink: 0;
             }}
             .naupa-float-text {{
@@ -259,7 +234,7 @@ def render_widget_flotante(texto_burbuja):
             <div class="naupa-float-avatar">🤖</div>
             <div>
                 <div class="naupa-float-text">{html.escape(texto_burbuja)}</div>
-                <div class="naupa-float-sub">Guía rápida en el menú lateral</div>
+                <div class="naupa-float-sub">{html.escape(subtexto)}</div>
             </div>
         </div>
         """,
@@ -767,27 +742,23 @@ with st.sidebar:
     st.session_state.modulo_activo = modulo
 
     st.markdown("---")
-    with st.expander("🤖 Asistente flotante (Guía)", expanded=True):
-        intencion_sel = st.selectbox(
-            "Ya sabes qué quieres hacer?",
-            list(GUIAS_ASISTENTE.keys()),
-            key="asistente_intencion",
-        )
-        guia_info = GUIAS_ASISTENTE[intencion_sel]
-        st.caption(guia_info["mensaje"])
-        for paso in guia_info["pasos"]:
-            st.markdown(f"<small>{paso}</small>", unsafe_allow_html=True)
-        destino = guia_info["modulo_destino"]
-        if st.button(f"Ir a: {destino}", use_container_width=True, key="btn_ir_asistente"):
-            st.session_state.modulo_activo = destino
-            st.rerun()
+    intencion_sel = st.selectbox(
+        "Ya sabes qué quieres hacer?",
+        list(GUIAS_ASISTENTE.keys()),
+        key="asistente_intencion",
+    )
+    guia_info = GUIAS_ASISTENTE[intencion_sel]
+    st.caption(guia_info["tip"])
+    if st.button(f"Ir a: {guia_info['modulo_destino']}", use_container_width=True, key="btn_ir_asistente"):
+        st.session_state.modulo_activo = guia_info["modulo_destino"]
+        st.rerun()
 
     st.markdown("---")
     if st.button("Cerrar sesión", use_container_width=True):
         st.session_state.usuario_actual = None
         st.rerun()
 
-render_widget_flotante(GUIAS_ASISTENTE[st.session_state.get("asistente_intencion", "¿Ya sabes qué quieres hacer?")]["burbuja"])
+render_widget_flotante(guia_info["burbuja"], guia_info["tip"])
 
 unidades = st.session_state.unidades_naupagas
 mapa_unidades = {
