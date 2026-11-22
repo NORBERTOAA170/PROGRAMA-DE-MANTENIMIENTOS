@@ -149,6 +149,62 @@ MESES_ES = {
     12: "Diciembre",
 }
 
+MODULOS_DISPONIBLES = [
+    "Programa de Mantenimiento Anual",
+    "Calendario Anual 2026",
+    "GENERAR NUEVO MANTENIMIENTO",
+    "Cerrar Mantenimientos",
+    "Agregar Unidad",
+]
+
+GUIAS_ASISTENTE = {
+    "¿Ya sabes qué quieres hacer?": {
+        "mensaje": "¡Hola! Ya sabes qué quieres hacer? Puedo ayudarte a generar un nuevo mantenimiento, cerrar uno pendiente, revisar el calendario o sacar el Excel para la inspección.",
+        "pasos": [
+            "1. Elige en el selector de abajo qué necesitas hacer ahorita.",
+            "2. Lee los pasos rápidos o dale clic a 'Ir a este módulo'.",
+            "3. Si toca inspección y piden hoja de cálculo, usa 'Exportar a Excel'.",
+        ],
+        "modulo_destino": "Programa de Mantenimiento Anual",
+    },
+    "Generar un nuevo mantenimiento": {
+        "mensaje": "Para registrar un preventivo o correctivo nuevo sin equivocarte:",
+        "pasos": [
+            "1. Selecciona la pipa / chofer arriba.",
+            "2. Elige 'Correctivo' si se atendió al momento (queda cerrado en automático con hora) o 'Preventivo' según su fecha.",
+            "3. Captura responsable, actividad y criterios, y pulsa 'Generar mantenimiento'.",
+        ],
+        "modulo_destino": "GENERAR NUEVO MANTENIMIENTO",
+    },
+    "Cerrar un mantenimiento": {
+        "mensaje": "Para dar por terminado un mantenimiento que estaba abierto:",
+        "pasos": [
+            "1. Entra a 'Cerrar Mantenimientos' y elige la unidad.",
+            "2. Selecciona el folio abierto, verifica el responsable y ajusta la hora en que terminó.",
+            "3. Escribe las acciones tomadas y presiona 'Cerrar mantenimiento'.",
+        ],
+        "modulo_destino": "Cerrar Mantenimientos",
+    },
+    "Revisar calendario o exportar Excel": {
+        "mensaje": "Para mostrar el mes en pantalla o descargar el archivo .xlsx:",
+        "pasos": [
+            "1. En 'Calendario Anual 2026', filtra por mes, pipa o frecuencia y usa 'Exportar mes a Excel'.",
+            "2. En 'Programa de Mantenimiento Anual', filtra la unidad/frecuencia y usa 'Exportar a Excel'.",
+            "3. El archivo descarga listo con datos de la unidad y permiso de distribución.",
+        ],
+        "modulo_destino": "Calendario Anual 2026",
+    },
+    "Agregar una nueva unidad": {
+        "mensaje": "Para dar de alta otra pipa en la bitácora:",
+        "pasos": [
+            "1. Ve a 'Agregar Unidad' en el menú.",
+            "2. Llena ID de unidad, marca/modelo, año, motor, serie, chofer y placas.",
+            "3. Guarda y aparecerá en los selectores de programa, calendario y cierres.",
+        ],
+        "modulo_destino": "Agregar Unidad",
+    },
+}
+
 def _hora_aleatoria_10_a_19(rng):
     total_min = rng.randint(10 * 60, 19 * 60)
     hh, mm = divmod(total_min, 60)
@@ -569,6 +625,9 @@ if "usuario_actual" not in st.session_state:
 if "unidades_naupagas" not in st.session_state:
     st.session_state.unidades_naupagas = list(PIPAS_BASE)
 
+if "modulo_activo" not in st.session_state:
+    st.session_state.modulo_activo = MODULOS_DISPONIBLES[0]
+
 # ================= PORTADA Y LOGIN =================
 if st.session_state.usuario_actual is None:
     st.markdown(
@@ -636,16 +695,32 @@ with st.sidebar:
         st.warning("Logo no cargado en carpeta del proyecto.")
     st.markdown(f"**Usuario:** {usuario['nombre']}")
     st.caption(f"ID: `{usuario['username']}` | **{EMPRESA}**")
+
     modulo = st.radio(
         "Módulos",
-        [
-            "Programa de Mantenimiento Anual",
-            "Calendario Anual 2026",
-            "GENERAR NUEVO MANTENIMIENTO",
-            "Cerrar Mantenimientos",
-            "Agregar Unidad"
-        ]
+        MODULOS_DISPONIBLES,
+        index=MODULOS_DISPONIBLES.index(st.session_state.modulo_activo)
+        if st.session_state.modulo_activo in MODULOS_DISPONIBLES else 0,
+        key="radio_modulo_nav",
     )
+    st.session_state.modulo_activo = modulo
+
+    st.markdown("---")
+    with st.expander("Asistente de guía rápida", expanded=False):
+        intencion_sel = st.selectbox(
+            "Ya sabes qué quieres hacer?",
+            list(GUIAS_ASISTENTE.keys()),
+            key="asistente_intencion",
+        )
+        guia_info = GUIAS_ASISTENTE[intencion_sel]
+        st.caption(guia_info["mensaje"])
+        for paso in guia_info["pasos"]:
+            st.markdown(f"<small>{paso}</small>", unsafe_allow_html=True)
+        destino = guia_info["modulo_destino"]
+        if st.button(f"Ir a: {destino}", use_container_width=True, key="btn_ir_asistente"):
+            st.session_state.modulo_activo = destino
+            st.rerun()
+
     st.markdown("---")
     if st.button("Cerrar sesión", use_container_width=True):
         st.session_state.usuario_actual = None
