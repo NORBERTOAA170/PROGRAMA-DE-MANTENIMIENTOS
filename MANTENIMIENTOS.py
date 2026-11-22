@@ -73,7 +73,7 @@ PIPAS_BASE = [
 CORRECTIVOS_BASE_POR_UNIDAD = {
     "005": [
         {
-            "fecha_base": date(2026, 2, 14),
+            "fecha_base": date(2026, 2, 7),
             "actividad": "Reemplazo de foco fundido de luz baja delantera izquierda y verificación de iluminación.",
             "responsable": "Mecánico de turno",
             "criterios": "Aceptación: Luz enciende correctamente y haz firme. Rechazo: Foco sin encender o falla en socket/cableado.",
@@ -87,7 +87,7 @@ CORRECTIVOS_BASE_POR_UNIDAD = {
             "personal": "Mecánico automotriz competente",
         },
         {
-            "fecha_base": date(2026, 11, 28),
+            "fecha_base": date(2026, 11, 7),
             "actividad": "Cambio de plumas limpiaparabrisas desgastadas y ajuste de boquillas de lavaparabrisas.",
             "responsable": "Mecánico de turno",
             "criterios": "Aceptación: Barrido limpio sin dejar estrías y chorro directo al parabrisas. Rechazo: Goma rasgada o barrido deficiente.",
@@ -110,7 +110,7 @@ CORRECTIVOS_BASE_POR_UNIDAD = {
             "personal": "Técnico de mantenimiento mecánico-eléctrico",
         },
         {
-            "fecha_base": date(2026, 12, 5),
+            "fecha_base": date(2026, 11, 7),
             "actividad": "Reemplazo de rótulo o calcomanía de identificación/señalización despegada en la unidad.",
             "responsable": "Operador / Responsable de seguridad",
             "criterios": "Aceptación: Rótulo íntegro, bien adherido y legible. Rechazo: Rótulo dañado, despegado o ilegible.",
