@@ -79,21 +79,21 @@ CORRECTIVOS_BASE_POR_UNIDAD = {
         {
             "fecha_base": date(2026, 2, 7),
             "actividad": "Reemplazo de foco fundido de luz baja delantera izquierda y verificación de iluminación.",
-            "responsable": "Mecánico de turno",
+            "responsable": "Erick Cruz (Mecanico)",
             "criterios": "Aceptación: Luz enciende correctamente y haz firme. Rechazo: Foco sin encender o falla en socket/cableado.",
             "personal": "Operador capacitado / Técnico de mantenimiento de unidad",
         },
         {
             "fecha_base": date(2026, 5, 16),
             "actividad": "Cambio anticipado de aceite de motor y filtro de aceite antes del intervalo programado.",
-            "responsable": "Mecánico de turno",
+            "responsable": "Erick Cruz (Mecanico)",
             "criterios": "Aceptación: Nivel correcto, sin fugas en tapón o filtro y presión estable. Rechazo: Fugas o nivel fuera de rango.",
             "personal": "Mecánico automotriz competente",
         },
         {
             "fecha_base": date(2026, 11, 7),
             "actividad": "Cambio de plumas limpiaparabrisas desgastadas y ajuste de boquillas de lavaparabrisas.",
-            "responsable": "Mecánico de turno",
+            "responsable": "Erick Cruz (Mecanico)",
             "criterios": "Aceptación: Barrido limpio sin dejar estrías y chorro directo al parabrisas. Rechazo: Goma rasgada o barrido deficiente.",
             "personal": "Operador capacitado / Técnico de mantenimiento de unidad",
         },
@@ -102,7 +102,7 @@ CORRECTIVOS_BASE_POR_UNIDAD = {
         {
             "fecha_base": date(2026, 3, 21),
             "actividad": "Reposición de birlo y tuerca de rueda dañada y reapriete con torque especificado.",
-            "responsable": "Mecánico de turno",
+            "responsable": "Erick Cruz (Mecanico)",
             "criterios": "Aceptación: Birlo completo y torque correcto. Rechazo: Birlo flojo, barrido o faltante.",
             "personal": "Mecánico automotriz competente",
         },
@@ -122,6 +122,13 @@ CORRECTIVOS_BASE_POR_UNIDAD = {
         },
     ],
 }
+
+INSPECTORES_VISUALES = [
+    "Jose Guadalupe Martinez Ortiz",
+    "Norberto Acevedo Atemiz",
+]
+
+RESPONSABLE_MECANICO = "Erick Cruz (Mecanico)"
 
 FRECUENCIAS_ORDEN = [
     "Todas",
@@ -240,6 +247,34 @@ def render_widget_flotante(texto_burbuja, subtexto):
         """,
         unsafe_allow_html=True,
     )
+
+def _es_inspeccion_visual(texto_actividad):
+    t = (texto_actividad or "").lower()
+    return "inspección visual" in t or "inspeccion visual" in t
+
+def _es_mantenimiento_mecanico(texto_actividad, responsable_actual=""):
+    t = (texto_actividad or "").lower()
+    r = (responsable_actual or "").lower()
+    if _es_inspeccion_visual(texto_actividad):
+        return False
+    palabras_mecanicas = (
+        "mecánic",
+        "mecanico",
+        "dirección",
+        "direccion",
+        "suspensión",
+        "suspension",
+        "muelles",
+        "amortiguadores",
+        "frenos",
+        "aceite de motor",
+        "filtro de aceite",
+        "birlo",
+        "torque",
+        "llantas",
+        "combustible",
+    )
+    return any(p in t for p in palabras_mecanicas) or "mecánic" in r or "mecanico" in r
 
 def _hora_aleatoria_10_a_19(rng):
     total_min = rng.randint(10 * 60, 19 * 60)
@@ -418,6 +453,15 @@ def generar_programa_anual_2026(desfase_unidad=0, id_unidad=None):
     }
     registros.sort(key=lambda r: (r["_fecha_dt"], orden_frec.get(r["FRECUENCIA"], 99)))
 
+    idx_visual = 0
+    for r in registros:
+        act_txt = r.get("ACTIVIDAD A REALIZAR", "")
+        if _es_inspeccion_visual(act_txt):
+            r["RESPONSABLE"] = INSPECTORES_VISUALES[idx_visual % len(INSPECTORES_VISUALES)]
+            idx_visual += 1
+        elif _es_mantenimiento_mecanico(act_txt, r.get("RESPONSABLE", "")):
+            r["RESPONSABLE"] = RESPONSABLE_MECANICO
+
     filas_finales = []
     consecutivo_prv = 1
     for r in registros:
@@ -444,6 +488,7 @@ def _normalizar_estado(val):
 
 def normalizar_filas(filas):
     limpias = []
+    idx_visual = 0
     for r in filas:
         item = dict(r)
         for k, v in item.items():
@@ -455,6 +500,17 @@ def normalizar_filas(filas):
             item["HORA DE CIERRE"] = ""
         else:
             item["HORA DE CIERRE"] = str(item.get("HORA DE CIERRE", "")).strip()
+
+        act_txt = item.get("ACTIVIDAD A REALIZAR", "")
+        resp_actual = str(item.get("RESPONSABLE", "")).strip()
+        if _es_inspeccion_visual(act_txt):
+            item["RESPONSABLE"] = INSPECTORES_VISUALES[idx_visual % len(INSPECTORES_VISUALES)]
+            idx_visual += 1
+        elif _es_mantenimiento_mecanico(act_txt, resp_actual):
+            item["RESPONSABLE"] = RESPONSABLE_MECANICO
+        elif not resp_actual:
+            item["RESPONSABLE"] = "Por asignar"
+
         limpias.append(item)
     return limpias
 
@@ -923,7 +979,7 @@ elif modulo == "GENERAR NUEVO MANTENIMIENTO":
             fecha_nuevo = c3.date_input("Fecha programada", value=HOY_MX)
 
             c4, c5 = st.columns(2)
-            asignado_a = c4.text_input("Asignado a (Responsable)", placeholder="Ej. Mecánico de turno / Chofer / Técnico LP")
+            asignado_a = c4.text_input("Asignado a (Responsable)", placeholder="Ej. Erick Cruz (Mecanico) / Chofer")
             personal_nuevo = c5.text_input(
                 "Personal competente necesario",
                 value="Operador capacitado / Técnico de mantenimiento de unidad"
@@ -981,7 +1037,7 @@ elif modulo == "GENERAR NUEVO MANTENIMIENTO":
                 }
                 filas_actuales.append(nueva_fila)
                 st.session_state[clave_tabla] = normalizar_filas(filas_actuales)
-                st.success(f"Mantenimiento {nuevo_folio} ({tipo_mant}) registrado y asignado a {asignado_a.strip()}.")
+                st.success(f"Mantenimiento {nuevo_folio} ({tipo_mant}) registrado.")
                 st.rerun()
 
     st.subheader(f"Mantenimientos registrados — ID {u_sel['id_unidad']}")
